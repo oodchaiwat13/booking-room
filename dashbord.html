@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--tx:#1f2933;--mut:#6b7785;--pri:#1a73e8;--ok:#188038;--okbg:#e6f4ea;--bad:#c5221f;--badbg:#fce8e6;--bd:#dde3ea}
+@media(prefers-color-scheme:dark){:root{--bg:#14181d;--card:#1e242b;--tx:#e8edf2;--mut:#9aa7b4;--pri:#8ab4f8;--ok:#81c995;--okbg:#1e3a29;--bad:#f28b82;--badbg:#42221f;--bd:#2f3943}}
+*{box-sizing:border-box}body{margin:0;font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx)}
+header{padding:12px 20px;background:var(--card);border-bottom:1px solid var(--bd);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+header h1{font-size:20px;margin:0;flex:1}
+#clock{font-size:26px;font-weight:600;color:var(--pri)}
+input,select{font:inherit;padding:7px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx)}
+.sum{display:flex;gap:8px;font-size:14px}.sum span{padding:4px 12px;border-radius:99px;font-weight:600}
+main{padding:14px;overflow-x:auto}
+.wrap{min-width:900px;max-width:1500px;margin:0 auto}
+.gh{margin:16px 0 6px;font-weight:600;color:var(--mut)}
+.line{display:grid;grid-template-columns:230px 190px 1fr;gap:10px;align-items:center;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin-bottom:6px}
+.name{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.st{font-size:13px}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:600;margin-right:6px}
+.free{background:var(--okbg);color:var(--ok)}.busy{background:var(--badbg);color:var(--bad)}
+.track{position:relative;height:30px;background:var(--okbg);border-radius:6px;overflow:hidden}
+.seg{position:absolute;top:0;bottom:0;background:var(--bad);color:#fff;font-size:12px;padding:6px 6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-right:2px solid var(--card)}
+.now{position:absolute;top:0;bottom:0;width:2px;background:var(--pri);z-index:2}
+.axis{display:grid;grid-template-columns:230px 190px 1fr;gap:10px;padding:0 10px;font-size:11px;color:var(--mut)}
+.ticks{position:relative;height:16px}.ticks span{position:absolute;transform:translateX(-50%)}
+.foot{text-align:center;color:var(--mut);font-size:12px;margin:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1>สถานะการใช้ห้อง</h1>
+  <div class="sum"><span class="free" id="nFree"></span><span class="busy" id="nBusy"></span></div>
+  <select id="grp"></select>
+  <input type="date" id="date">
+  <div id="clock"></div>
+</header>
+<main><div class="wrap">
+  <div class="axis"><div></div><div></div><div class="ticks" id="ticks"></div></div>
+  <div id="body">กำลังโหลด...</div>
+  <div class="foot">แถบสีแดง = ช่วงที่มีการจอง / สีเขียว = ว่าง / เส้นสีน้ำเงิน = เวลาปัจจุบัน · รีเฟรชอัตโนมัติทุก 1 นาที</div>
+</div></main>
+<script>
+const START=7*60, END=21*60, SPAN=END-START; // แสดง 07:00 - 21:00
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mins=t=>Number(t.slice(0,2))*60+Number(t.slice(3,5));
+const pct=m=>Math.min(100,Math.max(0,(m-START)/SPAN*100));
+const run=(fn,...a)=>new Promise((ok,ng)=>google.script.run.withSuccessHandler(ok).withFailureHandler(ng)[fn](...a));
+let CFG, list=[];
+
+$('ticks').innerHTML=Array.from({length:SPAN/60/2+1},(_,i)=>{const h=7+i*2;return `<span style="left:${pct(h*60)}%">${String(h).padStart(2,'0')}:00</span>`}).join('');
+
+function tick(){
+  const n=new Date(); $('clock').textContent=n.toTimeString().slice(0,8);
+}
+setInterval(tick,1000); tick();
+
+(async function(){
+  CFG=await run('getConfig');
+  $('date').value=CFG.today;
+  $('grp').innerHTML='<option value="">ทุกกลุ่มห้อง</option>'+CFG.groups.map(g=>`<option>${esc(g.group)}</option>`).join('');
+  $('date').onchange=load; $('grp').onchange=render;
+  load(); setInterval(load,60000);
+})();
+
+async function load(){ list=await run('getBookings',$('date').value); render(); }
+
+function render(){
+  const d=$('date').value, isToday=d===CFG.today, nowM=(()=>{const n=new Date();return n.getHours()*60+n.getMinutes()})();
+  let nf=0, nb=0, html='';
+  CFG.groups.filter(g=>!$('grp').value||g.group===$('grp').value).forEach(g=>{
+    html+=`<div class="gh">${esc(g.group)}</div>`;
+    g.rooms.forEach(r=>{
+      const bs=list.filter(b=>b.room===r).sort((a,b)=>a.start.localeCompare(b.start));
+      let status='', cur=null;
+      if(isToday){
+        cur=bs.find(b=>mins(b.start)<=nowM&&nowM<mins(b.end));
+        if(cur){ // ต่อเวลาถ้ามีรายการจองติดกัน
+          let end=cur.end; bs.forEach(b=>{ if(b.start===end) end=b.end; });
+          status=`<span class="badge busy">ไม่ว่าง</span>ใช้ถึง ${end} น.<br><small>${esc(cur.name)}</small>`; nb++;
+        } else {
+          const nx=bs.find(b=>mins(b.start)>nowM);
+          status=`<span class="badge free">ว่าง</span>`+(nx?`ว่างถึง ${nx.start} น.`:'ว่างตลอดวัน'); nf++;
+        }
+      } else {
+        status=bs.length?`<span class="badge busy">มีการจอง ${bs.length}</span>`:`<span class="badge free">ว่างทั้งวัน</span>`;
+      }
+      const segs=bs.map(b=>{const l=pct(mins(b.start)),w=pct(mins(b.end))-l;
+        return `<div class="seg" style="left:${l}%;width:${w}%" title="${b.start}-${b.end} ${esc(b.name)} (${esc(b.affiliation)})${b.purpose?' · '+esc(b.purpose):''}">${b.start}-${b.end} ${esc(b.name)}</div>`}).join('');
+      const nowLine=isToday&&nowM>=START&&nowM<=END?`<div class="now" style="left:${pct(nowM)}%"></div>`:'';
+      html+=`<div class="line"><div class="name" title="${esc(r)}">${esc(r)}</div><div class="st">${status}</div><div class="track">${segs}${nowLine}</div></div>`;
+    });
+  });
+  $('body').innerHTML=html;
+  $('nFree').textContent=isToday?`ว่าง ${nf} ห้อง`:''; $('nBusy').textContent=isToday?`ไม่ว่าง ${nb} ห้อง`:'';
+  $('nFree').style.display=$('nBusy').style.display=isToday?'':'none';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--tx:#1f2933;--mut:#6b7785;--pri:#1a73e8;--ok:#188038;--okbg:#e6f4ea;--bad:#c5221f;--badbg:#fce8e6;--bd:#dde3ea}
+@media(prefers-color-scheme:dark){:root{--bg:#14181d;--card:#1e242b;--tx:#e8edf2;--mut:#9aa7b4;--pri:#8ab4f8;--ok:#81c995;--okbg:#1e3a29;--bad:#f28b82;--badbg:#42221f;--bd:#2f3943}}
+*{box-sizing:border-box}body{margin:0;font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--tx)}
+header{padding:14px 20px;background:var(--card);border-bottom:1px solid var(--bd);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+header h1{font-size:18px;margin:0 16px 0 0}
+.tab{border:0;background:none;color:var(--mut);font:inherit;padding:8px 14px;border-radius:8px;cursor:pointer}
+.tab.on{background:var(--pri);color:#fff}
+main{max-width:1000px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:14px}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input,select,textarea,button.btn{font:inherit;width:100%;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+button.btn{background:var(--pri);color:#fff;border:0;margin-top:16px;cursor:pointer;font-weight:600}
+button.btn:disabled{opacity:.45;cursor:not-allowed}
+.msg{margin-top:10px;padding:10px;border-radius:8px;display:none}
+.msg.err{display:block;background:var(--badbg);color:var(--bad)}.msg.ok{display:block;background:var(--okbg);color:var(--ok)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.room{border:1px solid var(--bd);border-radius:10px;padding:10px;background:var(--card)}
+.room h4{margin:0 0 6px;font-size:14px}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:600}
+.free{background:var(--okbg);color:var(--ok)}.busy{background:var(--badbg);color:var(--bad)}
+.room small{display:block;color:var(--mut);margin-top:4px}
+.room button{margin-top:8px;border:1px solid var(--pri);background:none;color:var(--pri);border-radius:6px;padding:4px 10px;cursor:pointer;font:inherit}
+.bar{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:13px}
+.bar span.l{width:200px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar i{display:block;height:14px;background:var(--pri);border-radius:4px;min-width:2px}
+.kpi{display:flex;gap:14px;flex-wrap:wrap}.kpi div{flex:1;min-width:140px;text-align:center}.kpi b{font-size:28px;display:block;color:var(--pri)}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px;border-bottom:1px solid var(--bd);text-align:left}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>ระบบจองห้อง</h1>
+  <button class="tab on" data-p="dash">แดชบอร์ด</button>
+  <button class="tab" data-p="book">จองห้อง</button>
+  <button class="tab" data-p="stat">สถิติปีงบประมาณ</button>
+</header>
+<main>
+<!-- แดชบอร์ด -->
+<section id="dash">
+  <div class="card row">
+    <div><label>วันที่</label><input type="date" id="dDate"></div>
+    <div style="align-self:end;color:var(--mut);font-size:13px">สถานะ "ไม่ว่าง" คำนวณจากเวลาปัจจุบัน (หากเลือกวันนี้) ส่วนวันอื่นจะแสดงรายการจองของห้อง</div>
+  </div>
+  <div id="dBody">กำลังโหลด...</div>
+</section>
+
+<!-- จองห้อง -->
+<section id="book" class="hide">
+  <div class="card">
+    <div class="row">
+      <div><label>ห้อง</label><select id="room"></select></div>
+      <div><label>วันที่</label><input type="date" id="date"></div>
+      <div><label>เวลาเริ่ม</label><input type="time" id="start" step="900"></div>
+      <div><label>เวลาสิ้นสุด</label><input type="time" id="end" step="900"></div>
+    </div>
+    <div class="row">
+      <div><label>สังกัดผู้จอง</label><select id="aff"></select></div>
+      <div><label>สถานภาพ</label><select id="role"></select></div>
+      <div><label>ชื่อ-สกุล</label><input id="name" placeholder="ชื่อ-สกุล"></div>
+    </div>
+    <label>วัตถุประสงค์การใช้ห้อง</label><textarea id="purpose" rows="2"></textarea>
+    <div id="clash" class="msg"></div>
+    <button class="btn" id="submit">ยืนยันการจอง</button>
+    <div id="result" class="msg"></div>
+  </div>
+  <div class="card"><b>รายการจองของห้องนี้ในวันที่เลือก</b><div id="dayList" style="margin-top:8px"></div></div>
+</section>
+
+<!-- สถิติ -->
+<section id="stat" class="hide">
+  <div class="card row"><div><label>ปีงบประมาณ (พ.ศ.) 1 ต.ค. - 30 ก.ย.</label><select id="fy"></select></div></div>
+  <div id="sBody"></div>
+</section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+let CFG, dayBookings=[];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const run=(fn,...a)=>new Promise((ok,ng)=>google.script.run.withSuccessHandler(ok).withFailureHandler(e=>ng(e)).withUserObject(null)[fn](...a));
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
+  ['dash','book','stat'].forEach(p=>$(p).classList.toggle('hide',p!==t.dataset.p));
+  if(t.dataset.p==='dash')loadDash(); if(t.dataset.p==='stat')loadStats(); if(t.dataset.p==='book')loadDay();
+});
+
+(async function init(){
+  CFG=await run('getConfig');
+  $('dDate').value=$('date').value=CFG.today;
+  $('room').innerHTML=CFG.groups.map(g=>`<optgroup label="${esc(g.group)}">${g.rooms.map(r=>`<option>${esc(r)}</option>`).join('')}</optgroup>`).join('');
+  $('aff').innerHTML=CFG.affiliations.map(a=>`<option>${esc(a)}</option>`).join('');
+  $('role').innerHTML=CFG.roles.map(a=>`<option>${esc(a)}</option>`).join('');
+  $('fy').innerHTML=[0,1,2,3,4].map(i=>`<option>${CFG.fy-i}</option>`).join('');
+  $('dDate').onchange=loadDash; $('fy').onchange=loadStats;
+  ['room','start','end'].forEach(i=>$(i).onchange=check);
+  $('date').onchange=loadDay; $('submit').onclick=submit;
+  loadDash();
+})();
+
+async function loadDash(){
+  const d=$('dDate').value, isToday=d===CFG.today;
+  const list=await run('getBookings',d);
+  const now=new Date(), hhmm=now.toTimeString().slice(0,5);
+  $('dBody').innerHTML=CFG.groups.map(g=>`<div class="card"><b>${esc(g.group)}</b><div class="grid" style="margin-top:10px">`+
+    g.rooms.map(r=>{
+      const bs=list.filter(b=>b.room===r);
+      const cur=isToday?bs.find(b=>b.start<=hhmm&&hhmm<b.end):null;
+      const line=bs.map(b=>`${b.start}-${b.end} ${esc(b.name)}`).join('<br>');
+      return `<div class="room"><h4>${esc(r)}</h4>`+
+        (cur?`<span class="badge busy">ไม่ว่าง</span><small>ผู้จอง: <b>${esc(cur.name)}</b> (${esc(cur.affiliation)}) ถึง ${cur.end}</small>`
+            :`<span class="badge free">ว่าง</span>`)+
+        (bs.length?`<small>รายการจองวันนี้:<br>${line}</small>`:'')+
+        (cur?'':`<br><button onclick="goBook('${esc(r)}')">จองห้องนี้</button>`)+`</div>`;
+    }).join('')+`</div></div>`).join('');
+}
+
+function goBook(r){ $('room').value=r; $('date').value=$('dDate').value; document.querySelector('[data-p=book]').click(); }
+
+async function loadDay(){ dayBookings=await run('getBookings',$('date').value); check(); }
+
+function check(){
+  const r=$('room').value,s=$('start').value,e=$('end').value;
+  const mine=dayBookings.filter(b=>b.room===r);
+  $('dayList').innerHTML=mine.length?'<table>'+mine.map(b=>`<tr><td>${b.start}-${b.end}</td><td>${esc(b.name)}</td><td>${esc(b.affiliation)}</td></tr>`).join('')+'</table>':'<span style="color:var(--mut)">ยังไม่มีการจอง</span>';
+  const c=(s&&e)?mine.find(b=>s<b.end&&e>b.start):null;
+  $('clash').className='msg'+(c?' err':'');
+  $('clash').textContent=c?`ห้องไม่ว่างช่วง ${c.start}-${c.end} (จองโดย ${c.name}) ไม่สามารถจองได้`:'';
+  $('submit').disabled=!!c;
+}
+
+async function submit(){
+  const b={room:$('room').value,date:$('date').value,start:$('start').value,end:$('end').value,
+    affiliation:$('aff').value,role:$('role').value,name:$('name').value,purpose:$('purpose').value};
+  $('submit').disabled=true; $('result').className='msg';
+  try{
+    await run('submitBooking',b);
+    $('result').className='msg ok'; $('result').textContent='จองสำเร็จ';
+    $('purpose').value=''; await loadDay();
+  }catch(e){ $('result').className='msg err'; $('result').textContent=e.message||e; await loadDay(); }
+  check();
+}
+
+function bars(rows,unit){
+  const max=Math.max(1,...rows.map(r=>r.count));
+  return rows.length?rows.map(r=>`<div class="bar"><span class="l" title="${esc(r.key)}">${esc(r.key)}</span><i style="width:${r.count/max*60}%"></i><span>${r.count} ครั้ง / ${r.hours} ชม.</span></div>`).join(''):'<span style="color:var(--mut)">ไม่มีข้อมูล</span>';
+}
+async function loadStats(){
+  $('sBody').textContent='กำลังโหลด...';
+  const s=await run('getStats',$('fy').value);
+  $('sBody').innerHTML=`<div class="card kpi"><div><b>${s.total}</b>จำนวนการจองทั้งหมด</div><div><b>${s.totalHours}</b>ชั่วโมงการใช้ห้อง</div></div>`+
+    `<div class="card"><b>รายเดือน</b>${bars(s.byMonth)}</div>`+
+    `<div class="card"><b>ตามห้อง</b>${bars(s.byRoom)}</div>`+
+    `<div class="card"><b>ตามสังกัด</b>${bars(s.byAffiliation)}</div>`+
+    `<div class="card"><b>ตามสถานภาพ</b>${bars(s.byRole)}</div>`;
+}
+</script>
+</body>
+</html>
